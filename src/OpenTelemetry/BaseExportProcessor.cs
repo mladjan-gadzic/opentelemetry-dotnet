@@ -59,7 +59,7 @@ public abstract class BaseExportProcessor<T> : BaseProcessor<T>
         => this.friendlyTypeName;
 
     /// <inheritdoc />
-    public sealed override void OnStart(T data)
+    public override void OnStart(T data)
     {
     }
 
