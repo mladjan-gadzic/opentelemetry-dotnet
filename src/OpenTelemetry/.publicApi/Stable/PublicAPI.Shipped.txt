@@ -401,7 +401,7 @@ override OpenTelemetry.Trace.TraceIdRatioBasedSampler.ShouldSample(in OpenTeleme
 override OpenTelemetry.Trace.TracerProviderBuilderBase.AddInstrumentation<TInstrumentation>(System.Func<TInstrumentation>! instrumentationFactory) -> OpenTelemetry.Trace.TracerProviderBuilder!
 override OpenTelemetry.Trace.TracerProviderBuilderBase.AddLegacySource(string! operationName) -> OpenTelemetry.Trace.TracerProviderBuilder!
 override OpenTelemetry.Trace.TracerProviderBuilderBase.AddSource(params string![]! names) -> OpenTelemetry.Trace.TracerProviderBuilder!
-override sealed OpenTelemetry.BaseExportProcessor<T>.OnStart(T! data) -> void
+override OpenTelemetry.BaseExportProcessor<T>.OnStart(T! data) -> void
 readonly OpenTelemetry.BaseExportProcessor<T>.exporter -> OpenTelemetry.BaseExporter<T!>!
 readonly OpenTelemetry.Metrics.BaseExportingMetricReader.exporter -> OpenTelemetry.BaseExporter<OpenTelemetry.Metrics.Metric!>!
 static Microsoft.Extensions.Logging.OpenTelemetryLoggingExtensions.AddOpenTelemetry(this Microsoft.Extensions.Logging.ILoggingBuilder! builder, System.Action<OpenTelemetry.Logs.OpenTelemetryLoggerOptions!>? configure) -> Microsoft.Extensions.Logging.ILoggingBuilder!
