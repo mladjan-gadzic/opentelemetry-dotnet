@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Trace.Processor.Serializer;
 
 namespace OpenTelemetry;
 
@@ -82,16 +83,11 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
 
         foreach (var keyValuePair in this.activeActivities)
         {
-            LogRecord logRecord = GetLogRecord(keyValuePair.Value, this.GetHeartbeatLogRecordAttributes());
+            LogRecord logRecord =
+                GetLogRecord(keyValuePair.Value, this.GetHeartbeatLogRecordAttributes());
             this.baseExportProcessor.Exporter.Export(new Batch<LogRecord>(logRecord));
         }
     }
-
-    private List<KeyValuePair<string, object?>> GetHeartbeatLogRecordAttributes() =>
-    [
-        new("partial.event", "heartbeat"),
-        new("partial.frequency", this.ScheduledDelayMilliseconds + "ms")
-    ];
 
     protected override void OnExport(Activity data) => this.TryExport(data);
 
@@ -105,6 +101,11 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
         Activity data,
         List<KeyValuePair<string, object?>> logRecordAttributesToBeAdded)
     {
+        byte[] buffer = new byte[750000];
+        var sdkLimitOptions = new SdkLimitOptions();
+        int writePosition = ProtobufOtlpTraceSerializer
+            .WriteTraceData(ref buffer, 0, sdkLimitOptions, null, new Batch<Activity>(data));
+
         var logRecord = new LogRecord
         {
             Timestamp = DateTime.UtcNow,
@@ -113,11 +114,18 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
             TraceFlags = ActivityTraceFlags.None,
             Severity = LogRecordSeverity.Info,
             SeverityText = "Info",
-            Body = "Here goes serialized proto span",
+            Body = Convert.ToBase64String(buffer, 0, writePosition),
         };
         var logRecordAttributes = GetLogRecordAttributes();
         logRecordAttributes.AddRange(logRecordAttributesToBeAdded);
         logRecord.Attributes = logRecordAttributes;
+
         return logRecord;
     }
+
+    private List<KeyValuePair<string, object?>> GetHeartbeatLogRecordAttributes() =>
+    [
+        new("partial.event", "heartbeat"),
+        new("partial.frequency", this.ScheduledDelayMilliseconds + "ms")
+    ];
 }
