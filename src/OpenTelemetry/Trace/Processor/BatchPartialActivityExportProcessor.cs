@@ -13,7 +13,7 @@ namespace OpenTelemetry;
 /// </summary>
 public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<Activity>
 {
-    private readonly BaseExportProcessor<LogRecord> baseExportProcessor;
+    private readonly BaseExporter<LogRecord> logExporter;
     private readonly ConcurrentDictionary<ActivitySpanId, Activity> activeActivities;
     private readonly ConcurrentQueue<KeyValuePair<ActivitySpanId, Activity>> endedActivities;
 
@@ -21,14 +21,14 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
     /// Initializes a new instance of the <see cref="BatchActivityExportProcessor"/> class.
     /// </summary>
     /// <param name="exporter"><inheritdoc cref="BatchExportProcessor{T}" path="/param[@name='exporter']"/></param>
-    /// <param name="baseExportProcessor"><inheritdoc cref="BaseExportProcessor{LogRecord}" path="/param[@name='baseExportProcessor']"/></param>
+    /// <param name="logExporter"><inheritdoc cref="BaseExporter{T}" path="/param[@name='baseExportProcessor']"/></param>
     /// <param name="maxQueueSize"><inheritdoc cref="BatchExportProcessor{T}" path="/param[@name='maxQueueSize']"/></param>
     /// <param name="scheduledDelayMilliseconds"><inheritdoc cref="BatchExportProcessor{T}" path="/param[@name='scheduledDelayMilliseconds']"/></param>
     /// <param name="exporterTimeoutMilliseconds"><inheritdoc cref="BatchExportProcessor{T}" path="/param[@name='exporterTimeoutMilliseconds']"/></param>
     /// <param name="maxExportBatchSize"><inheritdoc cref="BatchExportProcessor{T}" path="/param[@name='maxExportBatchSize']"/></param>
     public BatchPartialActivityExportProcessor(
         BaseExporter<Activity> exporter,
-        BaseExportProcessor<LogRecord> baseExportProcessor,
+        BaseExporter<LogRecord> logExporter,
         int maxQueueSize = DefaultMaxQueueSize,
         int scheduledDelayMilliseconds = DefaultScheduledDelayMilliseconds,
         int exporterTimeoutMilliseconds = DefaultExporterTimeoutMilliseconds,
@@ -40,7 +40,7 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
             exporterTimeoutMilliseconds,
             maxExportBatchSize)
     {
-        this.baseExportProcessor = baseExportProcessor;
+        this.logExporter = logExporter;
         this.activeActivities = new ConcurrentDictionary<ActivitySpanId, Activity>();
         this.endedActivities = new ConcurrentQueue<KeyValuePair<ActivitySpanId, Activity>>();
     }
@@ -48,7 +48,7 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
     public override void OnStart(Activity data)
     {
         var logRecord = GetLogRecord(data, this.GetHeartbeatLogRecordAttributes());
-        this.baseExportProcessor.Exporter.Export(new Batch<LogRecord>(logRecord));
+        this.logExporter.Export(new Batch<LogRecord>(logRecord));
 
         this.activeActivities[data.SpanId] = data;
     }
@@ -68,7 +68,7 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
             new("partial.event", "stop"),
         };
         var logRecord = GetLogRecord(data, logRecordAttributes);
-        this.baseExportProcessor.Exporter.Export(new Batch<LogRecord>(logRecord));
+        this.logExporter.Export(new Batch<LogRecord>(logRecord));
 
         this.endedActivities.Enqueue(new KeyValuePair<ActivitySpanId, Activity>(data.SpanId, data));
     }
@@ -85,7 +85,7 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
         {
             LogRecord logRecord =
                 GetLogRecord(keyValuePair.Value, this.GetHeartbeatLogRecordAttributes());
-            this.baseExportProcessor.Exporter.Export(new Batch<LogRecord>(logRecord));
+            this.logExporter.Export(new Batch<LogRecord>(logRecord));
         }
     }
 
