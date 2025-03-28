@@ -100,9 +100,10 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
         Activity data,
         List<KeyValuePair<string, object?>> logRecordAttributesToBeAdded)
     {
-        Console.WriteLine("###MLADJAN###");
         byte[] buffer = new byte[750000];
-        var sdkLimitOptionsType = Type.GetType("OpenTelemetry.Exporter.OpenTelemetryProtocol.Implementation.SdkLimitOptions, OpenTelemetry.Exporter.OpenTelemetryProtocol", true);
+        var sdkLimitOptionsType = Type.GetType(
+                "OpenTelemetry.Exporter.OpenTelemetryProtocol.Implementation.SdkLimitOptions, OpenTelemetry.Exporter.OpenTelemetryProtocol",
+                true);
 
         if (sdkLimitOptionsType == null)
         {
@@ -113,36 +114,62 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
 
         if (sdkLimitOptions == null)
         {
-            throw new InvalidOperationException("Failed to create an instance of 'SdkLimitOptions'.");
+            throw new InvalidOperationException(
+                "Failed to create an instance of 'SdkLimitOptions'.");
         }
 
-        var protobufOtlpTraceSerializerType = Type.GetType("OpenTelemetry.Exporter.OpenTelemetryProtocol.Implementation.Serializer.ProtobufOtlpTraceSerializer, OpenTelemetry.Exporter.OpenTelemetryProtocol", true);
+        var protobufOtlpTraceSerializerType = Type.GetType(
+            "OpenTelemetry.Exporter.OpenTelemetryProtocol.Implementation.Serializer.ProtobufOtlpTraceSerializer, OpenTelemetry.Exporter.OpenTelemetryProtocol",
+            true);
 
         if (protobufOtlpTraceSerializerType == null)
         {
-            throw new InvalidOperationException("Failed to get the type 'ProtobufOtlpTraceSerializer'.");
+            throw new InvalidOperationException(
+                "Failed to get the type 'ProtobufOtlpTraceSerializer'.");
         }
 
-        var writeTraceDataMethod = protobufOtlpTraceSerializerType.GetMethod("WriteTraceData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var writeTraceDataMethod = protobufOtlpTraceSerializerType.GetMethod(
+            "WriteTraceData",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 
         if (writeTraceDataMethod == null)
         {
             throw new InvalidOperationException("Failed to get the method 'WriteTraceData'.");
         }
 
-        object? result = writeTraceDataMethod.Invoke(null, new object[] { buffer, 0, sdkLimitOptions, null!, new Batch<Activity>(data) });
-        int writePosition = result as int? ?? 0;  // Use a default value if null
+        object? result = writeTraceDataMethod.Invoke(
+            null,
+            new object[] { buffer, 0, sdkLimitOptions, null!, new Batch<Activity>(data) });
+        int writePosition = result as int? ?? 0; // Use a default value if null
 
-        var logRecord = new LogRecord
+        var logRecordType = Type.GetType("OpenTelemetry.Logs.LogRecord, OpenTelemetry", true);
+
+        if (logRecordType == null)
         {
-            Timestamp = DateTime.UtcNow,
-            TraceId = data.TraceId,
-            SpanId = data.SpanId,
-            TraceFlags = ActivityTraceFlags.None,
-            Severity = LogRecordSeverity.Info,
-            SeverityText = "Info",
-            Body = Convert.ToBase64String(buffer, 0, writePosition),
-        };
+            throw new InvalidOperationException("Failed to get the type 'LogRecord'.");
+        }
+
+        var logRecordConstructor = logRecordType.GetConstructor(
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
+            null,
+            Type.EmptyTypes,
+            null);
+
+        if (logRecordConstructor == null)
+        {
+            throw new InvalidOperationException("Failed to get the constructor of 'LogRecord'.");
+        }
+
+        var logRecord = (LogRecord)logRecordConstructor.Invoke(null);
+        logRecord.Timestamp = DateTime.UtcNow;
+        logRecord.TraceId = data.TraceId;
+        logRecord.SpanId = data.SpanId;
+        logRecord.TraceFlags = ActivityTraceFlags.None;
+        logRecord.Body = Convert.ToBase64String(buffer, 0, writePosition);
+
+        // Severity = LogRecordSeverity.Info,
+        // SeverityText = "Info",
+
         var logRecordAttributes = GetLogRecordAttributes();
         logRecordAttributes.AddRange(logRecordAttributesToBeAdded);
         logRecord.Attributes = logRecordAttributes;
