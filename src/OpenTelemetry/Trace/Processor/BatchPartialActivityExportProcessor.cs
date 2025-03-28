@@ -4,7 +4,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using OpenTelemetry.Logs;
-using OpenTelemetry.Trace.Processor.Serializer;
 
 namespace OpenTelemetry;
 
@@ -101,10 +100,38 @@ public class BatchPartialActivityExportProcessor : BatchPartialExportProcessor<A
         Activity data,
         List<KeyValuePair<string, object?>> logRecordAttributesToBeAdded)
     {
+        Console.WriteLine("###MLADJAN###");
         byte[] buffer = new byte[750000];
-        var sdkLimitOptions = new SdkLimitOptions();
-        int writePosition = ProtobufOtlpTraceSerializer
-            .WriteTraceData(ref buffer, 0, sdkLimitOptions, null, new Batch<Activity>(data));
+        var sdkLimitOptionsType = Type.GetType("OpenTelemetry.Exporter.OpenTelemetryProtocol.Implementation.SdkLimitOptions, OpenTelemetry.Exporter.OpenTelemetryProtocol", true);
+
+        if (sdkLimitOptionsType == null)
+        {
+            throw new InvalidOperationException("Failed to get the type 'SdkLimitOptions'.");
+        }
+
+        var sdkLimitOptions = Activator.CreateInstance(sdkLimitOptionsType, nonPublic: true);
+
+        if (sdkLimitOptions == null)
+        {
+            throw new InvalidOperationException("Failed to create an instance of 'SdkLimitOptions'.");
+        }
+
+        var protobufOtlpTraceSerializerType = Type.GetType("OpenTelemetry.Exporter.OpenTelemetryProtocol.Implementation.Serializer.ProtobufOtlpTraceSerializer, OpenTelemetry.Exporter.OpenTelemetryProtocol", true);
+
+        if (protobufOtlpTraceSerializerType == null)
+        {
+            throw new InvalidOperationException("Failed to get the type 'ProtobufOtlpTraceSerializer'.");
+        }
+
+        var writeTraceDataMethod = protobufOtlpTraceSerializerType.GetMethod("WriteTraceData", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+        if (writeTraceDataMethod == null)
+        {
+            throw new InvalidOperationException("Failed to get the method 'WriteTraceData'.");
+        }
+
+        object? result = writeTraceDataMethod.Invoke(null, new object[] { buffer, 0, sdkLimitOptions, null!, new Batch<Activity>(data) });
+        int writePosition = result as int? ?? 0;  // Use a default value if null
 
         var logRecord = new LogRecord
         {
